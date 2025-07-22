@@ -1,58 +1,55 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
+const express = require('express');
 
-// تأكيد وجود المتغيرات الأساسية
-if (!process.env.SUBSCRIPTION_BOT_TOKEN) {
-  throw new Error("❌ لم يتم تعيين SUBSCRIPTION_BOT_TOKEN في ملف .env");
-}
+// ━━━━━━━━━━━━━━━━━━━━━━ إعدادات القنوات ━━━━━━━━━━━━━━━━━━━━━━
+const CHANNELS = process.env.REQUIRED_CHANNELS.split(',').map(ch => ({
+  id: ch.trim(),
+  name: ch.includes('K7P7A40PaOIwNGY0') ? 'القناة الرسمية' : 'قناة الدعم',
+  url: `https://t.me/${ch.replace('@', '')}`
+}));
 
+// ━━━━━━━━━━━━━━━━━━━━━━ تهيئة البوت ━━━━━━━━━━━━━━━━━━━━━━
 const bot = new TelegramBot(process.env.SUBSCRIPTION_BOT_TOKEN, {polling: true});
+const app = express();
+app.use(express.json());
 
-// تحويل القنوات إلى مصفوفة
-const getChannels = () => {
-  return process.env.REQUIRED_CHANNELS.split(',').map(ch => ({
-    id: ch.trim(),
-    name: ch.includes('K7P7A40PaOIwNGY0') ? 'القناة الرسمية' : 'قناة الدعم'
-  }));
-};
-
-// التحقق من الاشتراكات
-const checkSubscription = async (userId) => {
-  const channels = getChannels();
+// ━━━━━━━━━━━━━━━━━━━━━━ وظائف التحقق ━━━━━━━━━━━━━━━━━━━━━━
+async function checkSubscription(userId) {
   const results = await Promise.all(
-    channels.map(async channel => {
+    CHANNELS.map(async channel => {
       try {
         const member = await bot.getChatMember(channel.id, userId);
         return {
           channel,
-          isMember: ['member', 'administrator', 'creator'].includes(member.status)
+          isSubscribed: ['member', 'administrator', 'creator'].includes(member.status)
         };
       } catch (error) {
-        console.error(`فشل التحقق في ${channel.id}:`, error);
-        return { channel, isMember: false };
+        console.error(`خطأ في التحقق من ${channel.id}:`, error);
+        return { channel, isSubscribed: false };
       }
     })
   );
-
+  
   return {
-    allSubscribed: results.every(r => r.isMember),
-    unsubscribed: results.filter(r => !r.isMember).map(r => r.channel)
+    allSubscribed: results.every(r => r.isSubscribed),
+    unsubscribed: results.filter(r => !r.isSubscribed).map(r => r.channel)
   };
-};
+}
 
-// معالجة /start
+// ━━━━━━━━━━━━━━━━━━━━━━ معالجة الأوامر ━━━━━━━━━━━━━━━━━━━━━━
 bot.onText(/\/start/, async (msg) => {
   const { allSubscribed, unsubscribed } = await checkSubscription(msg.from.id);
-
+  
   if (!allSubscribed) {
     const buttons = unsubscribed.map(ch => ({
       text: `انضم إلى ${ch.name}`,
-      url: `https://t.me/${ch.id.replace('@', '')}`
+      url: ch.url
     }));
-
+    
     await bot.sendMessage(msg.chat.id, `
-🔐 *مطلوب اشتراك*
-للاستمرار، يرجى الانضمام إلى:
+🔐 *اشتراك إجباري*
+يجب الانضمام للقنوات التالية:
 ${unsubscribed.map(ch => `- ${ch.name}`).join('\n')}
     `.trim(), {
       parse_mode: 'Markdown',
@@ -68,7 +65,6 @@ ${unsubscribed.map(ch => `- ${ch.name}`).join('\n')}
 🎉 *تم التحقق بنجاح!*
 اضغط لفتح البوت الرئيسي:
     `.trim(), {
-      parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [[{
           text: 'فتح @VIP_H3bot',
@@ -79,16 +75,8 @@ ${unsubscribed.map(ch => `- ${ch.name}`).join('\n')}
   }
 });
 
-// معالجة التحقق
-bot.on('callback_query', async (query) => {
-  if (query.data === 'check_sub') {
-    const { allSubscribed } = await checkSubscription(query.from.id);
-    
-    await bot.answerCallbackQuery(query.id, {
-      text: allSubscribed ? '✅ تم التحقق!' : '❌ لم تنضم بعد!',
-      show_alert: true
-    });
-  }
+// ━━━━━━━━━━━━━━━━━━━━━━ تشغيل الخادم (مطلوب لـ Render) ━━━━━━━━━━━━━━━━━━━━━━
+app.get('/', (req, res) => res.send('🤖 نظام الاشتراك الإجباري يعمل'));
+app.listen(process.env.PORT || 3000, () => {
+  console.log(`🚀 البوت المنفصل يعمل على البورت ${process.env.PORT}`);
 });
-
-console.log(`🤖 ${process.env.SUBSCRIPTION_BOT_NAME} يعمل بنجاح!`);
