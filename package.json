@@ -1,11 +1,12 @@
 {
   "name": "telegram-bot",
   "version": "1.0.0",
-  "description": "Telegram bot using Telegraf",
+  "description": "Telegram bot using Telegraf + Subscription System",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "start:subscription": "node subscription_bot.js"
+    "start:subscription": "node subscription_bot.js",
+    "render-build": "npm install && echo '✅ تم بناء المشروع بنجاح'"
   },
   "author": "Your Name",
   "license": "ISC",
@@ -42,10 +43,9 @@
     "google-tts-api": "^2.0.1",
 
     // الحزم المضافة للبوت المنفصل فقط
-    "nodemon": "^3.0.2",
-    "node-cron": "^3.0.2"
+    "nodemon": "^3.0.2" // للتطوير المحلي (اختياري)
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0" // تم الترقية لدعم Render
   }
 }
